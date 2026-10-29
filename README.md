@@ -33,7 +33,7 @@ The quickest way to install this integration is via [HACS](https://github.com/ha
 
 ### Manual installation
 
-1. Copy `custom_components/anker-solix-p1-ha` into your Home Assistant config directory.
+1. Copy `custom_components/anker_solix_p1` into your Home Assistant config directory.
 2. Restart Home Assistant.
 3. In Home Assistant, add the `Anker Solix P1 Energy Tracker` integration from `Settings -> Devices & Services`.
 
