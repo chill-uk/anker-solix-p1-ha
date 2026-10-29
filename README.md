@@ -23,17 +23,17 @@ It does **not** use the Anker's cloud API.
 
 The quickest way to install this integration is via [HACS](https://github.com/hacs/integration) by clicking the button below:
 
-[![Add to HACS via My Home Assistant](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chill-uk&repository=    anker-solix-p1-ha&category=integration)
+[![Add to HACS via My Home Assistant](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chill-uk&repository=anker-solix-p1-ha&category=integration)
 
 1. Click the button above to add this repository to HACS as a custom integration.
-2. Install `Anker Solix P1 Energy Tracker` from HACS.
+2. Install `Anker SOLIX P1` from HACS.
 3. Restart Home Assistant.
 4. In Home Assistant, go to `Settings -> Devices & Services`.
-5. Add the `Anker Solix P1 Energy Tracker` integration.
+5. Add the `Anker SOLIX P1` integration.
 
 ### Manual installation
 
-1. Copy `custom_components/ecoflow_p1` into your Home Assistant config directory.
+1. Copy `custom_components/anker-solix-p1-ha` into your Home Assistant config directory.
 2. Restart Home Assistant.
 3. In Home Assistant, add the `Anker Solix P1 Energy Tracker` integration from `Settings -> Devices & Services`.
 
