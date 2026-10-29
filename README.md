@@ -1,23 +1,78 @@
-# Anker SOLIX P1 — Home Assistant
+# Anker Solix P1 Energy Tracker for Home Assistant
 
-Local-only Home Assistant integration for the Anker SOLIX P1 energy meter.
+[![GitHub release](https://img.shields.io/github/release/chill-uk/anker-solix-p1-ha?include_prereleases=&sort=semver&color=blue)](https://github.com/chill-uk/anker-solix-p1-ha/releases/)
+[![issues - anker-solix-p1-ha](https://img.shields.io/github/issues/chill-uk/anker-solix-p1-ha)](https://github.com/chill-uk/anker-solix-p1-ha/issues)
+[![GH-code-size](https://img.shields.io/github/languages/code-size/chill-uk/anker-solix-p1-ha?color=red)](https://github.com/chill-uk/anker-solix-p1-ha)
+[![GH-last-commit](https://img.shields.io/github/last-commit/chill-uk/anker-solix-p1-ha?style=flat-square)](https://github.com/chill-uk/anker-solix-p1-ha/commits/main)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Validation](https://github.com/chill-uk/anker-solix-p1-ha/actions/workflows/validate.yml/badge.svg)](https://github.com/chill-uk/anker-solix-p1-ha/actions/workflows/validate.yml)
+![GitHub Downloads](https://img.shields.io/github/downloads/chill-uk/anker-solix-p1-ha/total)
 
-## Transport
+A local-only Home Assistant custom integration for the Anker Solix P1 Energy Tracker. It reads the raw DSMR telegram from the dongle's local
+HTTP endpoint.
 
-**Only** `GET http://<host>/getdebugdata` is called. The endpoint returns JSON with a `debugdata` DSMR P1 telegram and optional `timeout_times`, `crc_error_times` and `total_times` counters.
+It does **not** use the Anker's cloud API.
 
-No cloud connection, authentication, EcoFlow-specific endpoint, binary Anker endpoint, or device-control request is used.
+> [!IMPORTANT]
+> This is an unofficial community integration. It is not affiliated with,
+> endorsed by, connected with, or supported by Anker.
 
-## Install
+# Installation
 
-Install as a HACS custom repository (Integration), or copy `custom_components/anker_solix_p1` to Home Assistant's custom_components directory. Restart Home Assistant. Add **Anker SOLIX P1** under Settings → Devices & services and enter the device's LAN IP/hostname.
+### HACS installation
 
-Initial polling interval is 10 seconds, configurable from 5–300 seconds.
+The quickest way to install this integration is via [HACS](https://github.com/hacs/integration) by clicking the button below:
 
-## Sensors
+[![Add to HACS via My Home Assistant](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chill-uk&repository=    anker-solix-p1-ha&category=integration)
 
-Electricity tariff counters, instantaneous import/export, phase voltage/current/power (only when present in the telegram), M-Bus gas/heat meter volume/energy (when present), and DSMR-reception counters.
+1. Click the button above to add this repository to HACS as a custom integration.
+2. Install `Anker Solix P1 Energy Tracker` from HACS.
+3. Restart Home Assistant.
+4. In Home Assistant, go to `Settings -> Devices & Services`.
+5. Add the `Anker Solix P1 Energy Tracker` integration.
 
-Note: device diagnostics and meter identifiers should not be logged publicly. The integration does not currently verify the optional DSMR CRC. Sensor creation for optional OBIS/M-Bus fields occurs at setup based on the first valid telegram.
+### Manual installation
 
-The parser and sensor layout adapt the general Home Assistant/DSMR architecture of [EcoFlow P1 HA](https://github.com/chill-uk/ecoflow-p1-ha), **without using its transport endpoints or vendor-specific protocols**.
+1. Copy `custom_components/ecoflow_p1` into your Home Assistant config directory.
+2. Restart Home Assistant.
+3. In Home Assistant, add the `Anker Solix P1 Energy Tracker` integration from `Settings -> Devices & Services`.
+
+## Polling interval
+
+Open the integration's **Configure** dialog to:
+
+- change its hostname or IP address;
+- select a polling interval from 5 to 300 seconds;
+- select single-phase or three-phase validation;
+- temporarily enable telegram debug mode;
+- enable encrypted diagnostic capture for support.
+
+A changed address is probed before it is saved
+
+## Workflow
+
+1. Poll `http://<device-ip>/getdebugdata` at the configured interval.
+2. Check the HTTP response and parse its JSON.
+3. Extract the raw DSMR telegram from debugdata.
+4. Validate the telegram’s CRC.
+5. Parse the telegram by OBIS identifier.
+6. Validate the required OBIS fields according to the manually selected single-phase or three-phase mode.
+7. Convert valid measurements into Home Assistant coordinator data.
+8. Update the entities while retaining previous values for optional fields that were not present in this particular telegram.
+9. When a frame is invalid:
+    * Debug mode enabled: immediately log the reason and redacted raw telegram, with no grace period.
+    * Debug mode disabled: preserve the last valid values for up to 15 seconds; if valid data does not return, the affected entities become unavailable.
+
+The log can distinguish between:
+
+* HTTP or JSON failures
+* Missing debugdata
+* Invalid CRC
+* Missing required OBIS fields
+* Empty OBIS values
+* Malformed values
+* Unexpected units
+
+## License
+
+MIT
