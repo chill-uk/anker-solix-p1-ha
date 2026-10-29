@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import sys
+
 import pytest
 
 path = pathlib.Path(__file__).resolve().parents[1] / "custom_components" / "anker_solix_p1" / "parser.py"
 spec = importlib.util.spec_from_file_location("anker_parser", path)
 module = importlib.util.module_from_spec(spec)
-import sys
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
