@@ -1,0 +1,13 @@
+{
+  "domain": "anker_solix_p1",
+  "name": "Anker SOLIX P1",
+  "codeowners": [
+    "@chill-uk"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/chill-uk/anker-solix-p1-ha",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "0.1.0"
+}
