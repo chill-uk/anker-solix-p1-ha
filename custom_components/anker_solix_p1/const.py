@@ -1,10 +1,25 @@
-"""Constants for the local-only Anker SOLIX P1 integration."""
+"""Constants for the Anker SOLIX P1 Energy Tracker integration."""
+
+from typing import Final
+
 from homeassistant.const import Platform
 
-DOMAIN = "anker_solix_p1"
-PLATFORMS = (Platform.SENSOR,)
-DEFAULT_SCAN_INTERVAL = 10
-CONF_SCAN_INTERVAL = "scan_interval"
-MIN_SCAN_INTERVAL = 5
-MAX_SCAN_INTERVAL = 300
-PATH = "/getdebugdata"
+DOMAIN: Final = "anker_solix_p1"
+
+CONF_POLL_INTERVAL: Final = "poll_interval"
+CONF_PHASE_MODE: Final = "phase_mode"
+CONF_TELEGRAM_DEBUG: Final = "telegram_debug"
+CONF_ENCRYPTED_DIAGNOSTIC_CAPTURE: Final = "encrypted_diagnostic_capture"
+DEFAULT_POLL_INTERVAL: Final = 5
+MIN_POLL_INTERVAL: Final = 5
+MAX_POLL_INTERVAL: Final = 300
+
+PHASE_MODE_SINGLE: Final = "single"
+PHASE_MODE_THREE: Final = "three"
+DEFAULT_PHASE_MODE: Final = PHASE_MODE_SINGLE
+
+API_PATH: Final = "/getdebugdata"
+REQUEST_TIMEOUT: Final = 4
+TRANSIENT_FAILURE_GRACE_SECONDS: Final = 15
+
+PLATFORMS: Final = [Platform.SENSOR]

@@ -1,60 +1,110 @@
-"""Read only Anker's confirmed GET /getdebugdata endpoint."""
+"""Local API facade for the Anker SOLIX P1 Energy Tracker."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
-from aiohttp import ClientError, ClientSession, ClientTimeout
+from aiohttp import ClientSession
 
-from .const import PATH
-from .parser import InvalidTelegram, Telegram, parse_telegram
+from .client import (
+    AnkerP1Client,
+    AnkerP1TransportConnectionError,
+    AnkerP1TransportResponseError,
+)
+from .models import AnkerP1Data
+from .parser import InvalidTelegramError, parse_telegram
+from .validation import CrcResult, validate_crc
 
 
 class AnkerP1Error(Exception):
-    """Communication or response failure."""
+    """Base exception for Anker SOLIX P1 communication errors."""
 
 
-@dataclass(frozen=True, slots=True)
-class AnkerP1Data:
-    telegram: Telegram
-    timeout_times: int | None
-    crc_error_times: int | None
-    total_times: int | None
+class AnkerP1ConnectionError(AnkerP1Error):
+    """The Anker SOLIX P1 could not be reached."""
 
 
-def _counter(payload: dict[str, Any], name: str) -> int | None:
-    value = payload.get(name)
-    if type(value) is int and value >= 0:
-        return value
-    return None
+class AnkerP1ResponseError(AnkerP1Error):
+    """The Anker SOLIX P1 returned an invalid response."""
+
+
+class AnkerP1TelegramError(AnkerP1ResponseError):
+    """The Anker SOLIX P1 returned a telegram that failed integrity or parsing."""
+
+    def __init__(self, message: str, telegram: str, crc: CrcResult) -> None:
+        """Initialize an error containing data needed for safe debug logging."""
+        super().__init__(message)
+        self.telegram = telegram
+        self.crc = crc
 
 
 class AnkerP1Api:
-    """Only talks to the Anker local debugdata endpoint."""
+    """Async facade combining raw HTTP transport and DSMR interpretation."""
 
     def __init__(self, session: ClientSession, host: str) -> None:
-        self._session = session
-        self._url = f"http://{host}{PATH}"
+        """Initialize the API facade."""
+        self._client = AnkerP1Client(session, host)
+
+    @property
+    def host(self) -> str:
+        """Return the configured host."""
+        return self._client.host
 
     async def async_get_data(self) -> AnkerP1Data:
+        """Fetch and parse one response from /getdebugdata."""
         try:
-            async with self._session.get(self._url, timeout=ClientTimeout(total=8)) as response:
-                response.raise_for_status()
-                # The response is JSON with 'debugdata', not raw DSMR or an encrypted API.
-                if response.content_length is not None and response.content_length > 65536:
-                    raise AnkerP1Error("Oversized response")
-                payload = await response.json(content_type=None)
-        except (ClientError, TimeoutError, ValueError) as err:
-            raise AnkerP1Error("Unable to retrieve Anker P1 debug data") from err
-        if not isinstance(payload, dict):
-            raise AnkerP1Error("Unexpected response structure")
+            payload = await self._client.async_get_debug_payload()
+        except AnkerP1TransportConnectionError as err:
+            raise AnkerP1ConnectionError(str(err)) from err
+        except AnkerP1TransportResponseError as err:
+            raise AnkerP1ResponseError(str(err)) from err
+
+        telegram_raw = payload.get("debugdata")
+        if not isinstance(telegram_raw, str):
+            raise AnkerP1ResponseError("JSON response has no debugdata telegram")
+
+        crc = validate_crc(telegram_raw)
+        if not crc.valid:
+            raise AnkerP1TelegramError(
+                crc.error or "Telegram CRC validation failed", telegram_raw, crc
+            )
+
         try:
-            telegram = parse_telegram(payload.get("debugdata"))
-        except InvalidTelegram as err:
-            raise AnkerP1Error("Response did not contain a usable DSMR telegram") from err
+            telegram = parse_telegram(telegram_raw)
+        except InvalidTelegramError as err:
+            raise AnkerP1TelegramError(str(err), telegram_raw, crc) from err
+
         return AnkerP1Data(
             telegram=telegram,
-            timeout_times=_counter(payload, "timeout_times"),
-            crc_error_times=_counter(payload, "crc_error_times"),
-            total_times=_counter(payload, "total_times"),
+            serial=_optional_string(payload.get("SN")),
+            firmware_version=_optional_string(payload.get("VERSION_ALL")),
+            timeout_times=_optional_int(payload.get("timeout_times")),
+            crc_error_times=_optional_int(payload.get("crc_error_times")),
+            total_times=_optional_int(payload.get("total_times")),
+            raw_telegram=telegram_raw,
         )
+
+
+def _optional_string(value: Any) -> str | None:
+    """Return a trimmed non-empty string."""
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _optional_int(value: Any) -> int | None:
+    """Return an integer without allowing malformed metadata to fail an update."""
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+# Re-export transport errors to preserve the integration's existing import surface.
+__all__ = [
+    "AnkerP1Api",
+    "AnkerP1ConnectionError",
+    "AnkerP1Error",
+    "AnkerP1ResponseError",
+    "AnkerP1TelegramError",
+]
