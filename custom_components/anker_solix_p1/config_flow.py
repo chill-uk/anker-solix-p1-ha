@@ -1,71 +1,218 @@
-"""Minimal config flow; verify that GET /getdebugdata contains DSMR."""
+"""Config flow for the Anker SOLIX P1 Energy Tracker integration."""
+
 from __future__ import annotations
 
 import ipaddress
+from urllib.parse import urlsplit
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, OptionsFlowWithReload
+from homeassistant.config_entries import (
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
 from homeassistant.const import CONF_HOST
+from homeassistant.core import callback
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import AnkerP1Api, AnkerP1Error
-from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN, MIN_SCAN_INTERVAL, MAX_SCAN_INTERVAL
+from .api import (
+    AnkerP1Api,
+    AnkerP1ConnectionError,
+    AnkerP1ResponseError,
+)
+from .const import (
+    CONF_ENCRYPTED_DIAGNOSTIC_CAPTURE,
+    CONF_PHASE_MODE,
+    CONF_POLL_INTERVAL,
+    CONF_TELEGRAM_DEBUG,
+    DEFAULT_PHASE_MODE,
+    DEFAULT_POLL_INTERVAL,
+    DOMAIN,
+    MAX_POLL_INTERVAL,
+    MIN_POLL_INTERVAL,
+    PHASE_MODE_SINGLE,
+    PHASE_MODE_THREE,
+)
 
 
-def normalize_host(value: str) -> str:
-    """Accept IPv4 address or DNS hostname only; never arbitrary URLs/paths."""
-    host = value.strip().lower().rstrip(".")
-    if not host or len(host) > 253 or any(c in host for c in (":", "/", "@", "?", "#", "\\")):
-        raise ValueError("Enter a hostname or IPv4 address, without a URL or port")
-    try:
-        ipaddress.IPv4Address(host)
-        return host
-    except ipaddress.AddressValueError:
-        pass
-    labels = host.split(".")
-    if any(not x or len(x) > 63 or x[0] == "-" or x[-1] == "-" or
-           any(not (c.isascii() and (c.isalnum() or c == "-")) for c in x) for x in labels):
-        raise ValueError("Invalid hostname")
-    return host
+class AnkerP1ConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle an Anker SOLIX P1 config flow."""
 
-
-class AnkerSolixP1ConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
-    async def async_step_user(self, user_input=None):
-        errors = {}
+    async def async_step_user(
+        self, user_input: dict[str, str] | None = None
+    ) -> ConfigFlowResult:
+        """Configure an Anker SOLIX P1 using its hostname or IP address."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
             try:
-                host = normalize_host(user_input[CONF_HOST])
-                await AnkerP1Api(async_get_clientsession(self.hass), host).async_get_data()
+                host = _normalize_host(user_input[CONF_HOST])
             except ValueError:
                 errors["base"] = "invalid_host"
-            except AnkerP1Error:
-                errors["base"] = "cannot_connect"
             else:
-                await self.async_set_unique_id(f"host:{host}")
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=f"Anker SOLIX P1 ({host})", data={CONF_HOST: host})
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({vol.Required(CONF_HOST): str}),
-            errors=errors,
-        )
+                api = AnkerP1Api(async_get_clientsession(self.hass), host)
+                try:
+                    data = await api.async_get_data()
+                except AnkerP1ConnectionError:
+                    errors["base"] = "cannot_connect"
+                except AnkerP1ResponseError:
+                    errors["base"] = "invalid_response"
+                else:
+                    unique_id = data.serial or f"host:{host.casefold()}"
+                    await self.async_set_unique_id(unique_id)
+                    self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+                    return self.async_create_entry(
+                        title=data.serial or host,
+                        data={CONF_HOST: host},
+                    )
+
+        schema = vol.Schema({vol.Required(CONF_HOST): str})
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     @staticmethod
-    def async_get_options_flow(config_entry):
+    @callback
+    def async_get_options_flow(config_entry) -> AnkerP1OptionsFlow:
+        """Return the options flow."""
         return AnkerP1OptionsFlow()
 
 
 class AnkerP1OptionsFlow(OptionsFlowWithReload):
-    async def async_step_init(self, user_input=None):
+    """Handle Anker SOLIX P1 options."""
+
+    async def async_step_init(
+        self, user_input: dict[str, str | int | bool] | None = None
+    ) -> ConfigFlowResult:
+        """Configure and revalidate the device address and polling interval."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-        interval = self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema({
-                vol.Required(CONF_SCAN_INTERVAL, default=interval):
-                    vol.All(vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)),
-            }),
+            try:
+                host = _normalize_host(str(user_input[CONF_HOST]))
+            except ValueError:
+                errors["base"] = "invalid_host"
+            else:
+                if _host_is_configured(self, host):
+                    errors["base"] = "already_configured"
+                else:
+                    api = AnkerP1Api(async_get_clientsession(self.hass), host)
+                    try:
+                        data = await api.async_get_data()
+                    except AnkerP1ConnectionError:
+                        errors["base"] = "cannot_connect"
+                    except AnkerP1ResponseError:
+                        errors["base"] = "invalid_response"
+                    else:
+                        expected_id = self.config_entry.unique_id
+                        if (
+                            expected_id
+                            and not expected_id.startswith("host:")
+                            and data.serial != expected_id
+                        ):
+                            errors["base"] = "wrong_device"
+                        else:
+                            return self.async_create_entry(
+                                title="",
+                                data={
+                                    CONF_HOST: host,
+                                    CONF_POLL_INTERVAL: user_input[CONF_POLL_INTERVAL],
+                                    CONF_PHASE_MODE: user_input[CONF_PHASE_MODE],
+                                    CONF_TELEGRAM_DEBUG: user_input[
+                                        CONF_TELEGRAM_DEBUG
+                                    ],
+                                    CONF_ENCRYPTED_DIAGNOSTIC_CAPTURE: user_input[
+                                        CONF_ENCRYPTED_DIAGNOSTIC_CAPTURE
+                                    ],
+                                },
+                            )
+
+        current_interval = self.config_entry.options.get(
+            CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL
         )
+        current_host = self.config_entry.options.get(
+            CONF_HOST, self.config_entry.data[CONF_HOST]
+        )
+        current_phase_mode = self.config_entry.options.get(
+            CONF_PHASE_MODE, DEFAULT_PHASE_MODE
+        )
+        current_debug = self.config_entry.options.get(CONF_TELEGRAM_DEBUG, False)
+        current_capture = self.config_entry.options.get(
+            CONF_ENCRYPTED_DIAGNOSTIC_CAPTURE, False
+        )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HOST, default=current_host): str,
+                vol.Required(CONF_POLL_INTERVAL, default=current_interval): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_POLL_INTERVAL, max=MAX_POLL_INTERVAL),
+                ),
+                vol.Required(
+                    CONF_PHASE_MODE, default=current_phase_mode
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[PHASE_MODE_SINGLE, PHASE_MODE_THREE],
+                        translation_key="phase_mode",
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(
+                    CONF_TELEGRAM_DEBUG, default=current_debug
+                ): selector.BooleanSelector(),
+                vol.Required(
+                    CONF_ENCRYPTED_DIAGNOSTIC_CAPTURE, default=current_capture
+                ): selector.BooleanSelector(),
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+
+
+def _host_is_configured(flow: AnkerP1OptionsFlow, host: str) -> bool:
+    """Return whether another config entry already uses this address."""
+    return any(
+        entry.entry_id != flow.config_entry.entry_id
+        and entry.options.get(CONF_HOST, entry.data.get(CONF_HOST)) == host
+        for entry in flow.hass.config_entries.async_entries(DOMAIN)
+    )
+
+
+def _normalize_host(value: str) -> str:
+    """Normalize a hostname, IPv4 address, or IPv6 address for an HTTP URL."""
+    candidate = value.strip()
+    if not candidate:
+        raise ValueError("Host is empty")
+
+    if "://" not in candidate and candidate.count(":") >= 2:
+        try:
+            address = ipaddress.ip_address(candidate.strip("[]"))
+        except ValueError:
+            pass
+        else:
+            return f"[{address.compressed}]"
+
+    parsed = urlsplit(candidate if "://" in candidate else f"//{candidate}")
+    if parsed.scheme and parsed.scheme.casefold() != "http":
+        raise ValueError("Only local HTTP is supported")
+    if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+        raise ValueError("Enter only a hostname or IP address")
+    if parsed.port not in (None, 80):
+        raise ValueError("Anker SOLIX P1 uses port 80")
+    if not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("Invalid host")
+
+    hostname = parsed.hostname.rstrip(".").casefold()
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        if any(not label or len(label) > 63 for label in hostname.split(".")):
+            raise ValueError("Invalid hostname") from None
+        if any(
+            not all(char.isalnum() or char == "-" for char in label)
+            or label.startswith("-")
+            or label.endswith("-")
+            for label in hostname.split(".")
+        ):
+            raise ValueError("Invalid hostname") from None
+        return hostname
+
+    return f"[{address.compressed}]" if address.version == 6 else address.compressed

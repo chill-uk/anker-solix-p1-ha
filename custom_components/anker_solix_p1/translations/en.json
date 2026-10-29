@@ -1,0 +1,170 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Anker SOLIX P1 Energy Tracker",
+        "description": "Enter the local hostname or IP address of your Anker SOLIX P1.",
+        "data": {
+          "host": "Hostname or IP address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_host": "Enter a valid hostname or IP address on port 80",
+      "invalid_response": "The device did not return a valid DSMR telegram"
+    },
+    "abort": {
+      "already_configured": "This Anker SOLIX P1 is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Anker SOLIX P1 options",
+        "description": "Change the local address, polling interval, meter phases, logging, or encrypted support capture.",
+        "data": {
+          "host": "Hostname or IP address",
+          "poll_interval": "Polling interval (seconds)",
+          "phase_mode": "Meter phases",
+          "telegram_debug": "Telegram debug mode",
+          "encrypted_diagnostic_capture": "Encrypted diagnostic capture"
+        },
+        "data_description": {
+          "telegram_debug": "Immediately log transient request failures and redacted telegrams with CRC, parsing, or required-field errors. The 15-second grace period remains active.",
+          "encrypted_diagnostic_capture": "Encrypt raw telegrams immediately for support diagnostics. Capture stops after 10 minutes or 120 records. Download diagnostics before disabling this option or restarting Home Assistant."
+        }
+      }
+    },
+    "error": {
+      "already_configured": "This address is already used by another Anker SOLIX P1 entry",
+      "cannot_connect": "Failed to connect",
+      "invalid_host": "Enter a valid hostname or IP address on port 80",
+      "invalid_response": "The device did not return a valid DSMR telegram",
+      "wrong_device": "The device at this address has a different Anker SOLIX P1 serial number"
+    }
+  },
+  "selector": {
+    "phase_mode": {
+      "options": {
+        "single": "Single phase",
+        "three": "Three phase"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energy_import_tariff_1": {
+        "name": "Energy import tariff 1"
+      },
+      "energy_import_tariff_2": {
+        "name": "Energy import tariff 2"
+      },
+      "energy_export_tariff_1": {
+        "name": "Energy export tariff 1"
+      },
+      "energy_export_tariff_2": {
+        "name": "Energy export tariff 2"
+      },
+      "power_import": {
+        "name": "Power consumption"
+      },
+      "power_export": {
+        "name": "Power production"
+      },
+      "current_quarter_average": {
+        "name": "Current quarter average"
+      },
+      "monthly_peak": {
+        "name": "Monthly peak"
+      },
+      "active_tariff": {
+        "name": "Tariff indicator"
+      },
+      "power_failures": {
+        "name": "Power failures"
+      },
+      "long_power_failures": {
+        "name": "Long power failures"
+      },
+      "voltage_l1": {
+        "name": "Voltage L1"
+      },
+      "voltage_l2": {
+        "name": "Voltage L2"
+      },
+      "voltage_l3": {
+        "name": "Voltage L3"
+      },
+      "current_l1": {
+        "name": "Current L1"
+      },
+      "current_l2": {
+        "name": "Current L2"
+      },
+      "current_l3": {
+        "name": "Current L3"
+      },
+      "power_import_l1": {
+        "name": "Power consumption L1"
+      },
+      "power_import_l2": {
+        "name": "Power consumption L2"
+      },
+      "power_import_l3": {
+        "name": "Power consumption L3"
+      },
+      "power_export_l1": {
+        "name": "Power production L1"
+      },
+      "power_export_l2": {
+        "name": "Power production L2"
+      },
+      "power_export_l3": {
+        "name": "Power production L3"
+      },
+      "voltage_sags_l1": {
+        "name": "Voltage sags L1"
+      },
+      "voltage_sags_l2": {
+        "name": "Voltage sags L2"
+      },
+      "voltage_sags_l3": {
+        "name": "Voltage sags L3"
+      },
+      "voltage_swells_l1": {
+        "name": "Voltage swells L1"
+      },
+      "voltage_swells_l2": {
+        "name": "Voltage swells L2"
+      },
+      "voltage_swells_l3": {
+        "name": "Voltage swells L3"
+      },
+      "timeout_times": {
+        "name": "Telegram timeouts"
+      },
+      "crc_error_times": {
+        "name": "Telegram CRC errors"
+      },
+      "total_times": {
+        "name": "Telegram attempts"
+      },
+      "mbus_gas": {
+        "name": "Gas delivered"
+      },
+      "mbus_water": {
+        "name": "Water delivered"
+      },
+      "mbus_energy": {
+        "name": "Energy delivered"
+      },
+      "energy_import_total": {
+        "name": "Energy import total"
+      },
+      "energy_export_total": {
+        "name": "Energy export total"
+      }
+    }
+  }
+}
