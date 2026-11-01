@@ -27,7 +27,15 @@ I add another layer of encryption, to which only I have the private key.
 
 Save [capture.py](../custom_components/anker_solix_p1/capture.py) alongside your
 `.bin` files. It runs without Home Assistant and uses the same support public key
-as the integration. It needs Python 3 and PyNaCl (`python3 -m pip install pynacl`).
+as the integration. Set up a Python virtual environment and install PyNaCl:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install pynacl
+```
+
+Run the encryption command below in the same terminal, with the environment active.
 
 Replace the IP below with the P1 address you used for curl:
 
