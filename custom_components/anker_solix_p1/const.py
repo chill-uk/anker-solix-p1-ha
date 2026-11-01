@@ -6,6 +6,8 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "anker_solix_p1"
 
+CONF_EXPERIMENTAL_HTTP: Final = "experimental_http"
+CONF_HTTP_SUFFIX: Final = "http_suffix"
 CONF_POLL_INTERVAL: Final = "poll_interval"
 CONF_PHASE_MODE: Final = "phase_mode"
 CONF_TELEGRAM_DEBUG: Final = "telegram_debug"

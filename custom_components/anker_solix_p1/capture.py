@@ -120,3 +120,79 @@ class EncryptedDiagnosticCapture:
         if self._stop_reason is None:
             self._stop_reason = reason
             self._stopped_at = self._now()
+
+
+def encrypt_http_readout(
+    device_ip: str,
+    files: Mapping[str, bytes],
+    *,
+    firmware_version: str | None = None,
+    public_key: str = SUPPORT_PUBLIC_KEY,
+    key_id: str = SUPPORT_KEY_ID,
+) -> dict[str, Any]:
+    """Seal endpoint bodies and derivation IP in a support-compatible envelope."""
+    from ipaddress import IPv4Address
+
+    device_ip = str(IPv4Address(device_ip))
+    endpoints = {
+        "measurement.bin": "/api/measurement",
+        "wifi_info.bin": "/api/wifi_info",
+        "device_info.bin": "/api/device_info",
+    }
+    if not files or not files.keys() <= endpoints.keys():
+        raise ValueError("Choose measurement.bin, wifi_info.bin, or device_info.bin")
+    for body in files.values():
+        if not 18 < len(body) <= 65536 or body[:2] != b"\x11\x00":
+            raise ValueError("Input is not a supported binary endpoint response")
+    capture = EncryptedDiagnosticCapture(True, public_key=public_key, key_id=key_id)
+    capture.capture(
+        {
+            "outcome": "http_readout",
+            "device_ip": device_ip,
+            "firmware_version": firmware_version,
+            "responses": {
+                endpoints[name]: {"body_base64": base64.b64encode(body).decode("ascii")}
+                for name, body in files.items()
+            },
+        }
+    )
+    return {"schema_version": 1, **capture.diagnostics()}
+
+
+def main() -> int:
+    """Encrypt curl readouts locally without importing Home Assistant."""
+    import argparse
+    import os
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description="Encrypt P1 readouts for support.")
+    parser.add_argument("--ip", required=True, help="P1 IPv4 address at capture time")
+    parser.add_argument("--firmware", help="Optional firmware version")
+    parser.add_argument(
+        "--output", type=Path, default=Path("http-readout.encrypted.json")
+    )
+    parser.add_argument("files", type=Path, nargs="+", help="Original curl .bin files")
+    args = parser.parse_args()
+    try:
+        if not 1 <= len(args.files) <= 3:
+            raise ValueError("Choose one to three endpoint files")
+        files = {}
+        for path in args.files:
+            if path.name in files:
+                raise ValueError("Duplicate endpoint file")
+            with path.open("rb") as stream:
+                files[path.name] = stream.read(65537)
+        envelope = encrypt_http_readout(args.ip, files, firmware_version=args.firmware)
+        content = (json.dumps(envelope, indent=2) + "\n").encode()
+        fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(content)
+    except (OSError, ValueError):
+        print("Encryption failed: check IP, input files, and a new output filename.")
+        return 1
+    print("Encrypted readout saved. Send only the .encrypted.json file to support.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

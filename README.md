@@ -1,5 +1,7 @@
 # Anker Solix P1 Energy Tracker for Home Assistant
 
+> **Help validate experimental HTTP decryption:** Please send me a support-encrypted readout from `/api/measurement`, `/api/wifi_info`, or `/api/device_info` so I can check the decryption key on another device. See the [capture guide](docs/http-readout.md) for simple curl commands, payload details, and encrypting the files and capture-time IP before sharing.
+
 [![GitHub release](https://img.shields.io/github/release/chill-uk/anker-solix-p1-ha?include_prereleases=&sort=semver&color=blue)](https://github.com/chill-uk/anker-solix-p1-ha/releases/)
 [![issues - anker-solix-p1-ha](https://img.shields.io/github/issues/chill-uk/anker-solix-p1-ha)](https://github.com/chill-uk/anker-solix-p1-ha/issues)
 [![GH-code-size](https://img.shields.io/github/languages/code-size/chill-uk/anker-solix-p1-ha?color=red)](https://github.com/chill-uk/anker-solix-p1-ha)
@@ -72,6 +74,35 @@ The log can distinguish between:
 * Empty OBIS values
 * Malformed values
 * Unexpected units
+
+## Experimental encrypted HTTP endpoints
+
+Disabled by default. In the integration's **Configure** dialog, enable
+**Experimental encrypted HTTP decoding**, set the host to the P1's current literal
+IPv4 address, and enter your privately obtained five-byte derivation value as
+10 hexadecimal digits. No firmware secret is bundled with this integration.
+A hostname or IPv6 address cannot be used in this mode because derivation uses
+the device's IPv4 address. Update the configured address if DHCP changes it.
+
+This adds authenticated decoding of `/api/measurement`, `/api/wifi_info`, and
+`/api/device_info` on each poll. Each response must pass AES-GCM authentication
+and JSON validation. Failures are isolated from normal DSMR sensor updates;
+there is no unauthenticated fallback. Endpoint field mappings remain experimental,
+so decoded values do not replace existing sensor readings.
+
+Download integration diagnostics to see per-endpoint `authenticated`,
+`decode_failed`, or `request_failed` status. To obtain the decoded JSON readout,
+enable **Encrypted diagnostic capture**, wait for a poll, then download diagnostics
+before disabling capture or restarting Home Assistant. Endpoint JSON is included
+only inside the existing encrypted support records, readable with the maintainer's
+private support key. The normal diagnostics contain no derivation value or decoded
+HTTP payload. Your Home Assistant configuration and backups do contain the private
+derivation value; keep them private. Disable the experimental option to stop the
+additional HTTP requests.
+
+The capture retains at most 120 encrypted records for up to 10 minutes. With
+experimental decoding enabled, a successful poll contributes two records, so
+the record limit can be reached sooner.
 
 ## License
 

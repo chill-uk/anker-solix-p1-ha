@@ -35,6 +35,33 @@ class AnkerP1Client:
         """Return the configured host."""
         return self._host
 
+    async def async_get_encrypted_body(self, path: str) -> bytes:
+        """Fetch an allowlisted experimental endpoint with bounded buffering."""
+        from .http_decoder import ENDPOINTS
+
+        if path not in ENDPOINTS:
+            raise ValueError("Unsupported experimental endpoint")
+        try:
+            async with asyncio.timeout(REQUEST_TIMEOUT):
+                async with self._session.get(
+                    f"http://{self._host}{path}", allow_redirects=False
+                ) as response:
+                    response.raise_for_status()
+                    if response.status != 200:
+                        raise AnkerP1TransportResponseError("Unexpected HTTP status")
+                    body = bytearray()
+                    async for chunk in response.content.iter_chunked(4096):
+                        body.extend(chunk)
+                        if len(body) > 65536:
+                            raise AnkerP1TransportResponseError(
+                                "Encrypted response too large"
+                            )
+                    return bytes(body)
+        except (TimeoutError, ClientError):
+            raise AnkerP1TransportConnectionError(
+                "Experimental HTTP request failed"
+            ) from None
+
     async def async_get_debug_payload(self) -> Mapping[str, Any]:
         """Fetch one raw /getdebugdata payload."""
         try:
@@ -54,9 +81,7 @@ class AnkerP1Client:
                 f"Request to {API_PATH} failed: {detail}"
             ) from err
         except ValueError as err:
-            raise AnkerP1TransportResponseError(
-                "Device returned invalid JSON"
-            ) from err
+            raise AnkerP1TransportResponseError("Device returned invalid JSON") from err
 
         if not isinstance(payload, Mapping):
             raise AnkerP1TransportResponseError("JSON response is not an object")

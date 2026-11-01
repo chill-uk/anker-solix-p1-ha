@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from aiohttp import ClientSession
@@ -11,6 +12,7 @@ from .client import (
     AnkerP1TransportConnectionError,
     AnkerP1TransportResponseError,
 )
+from .http_decoder import ENDPOINTS, HttpDecodeError, HttpDecoder
 from .models import AnkerP1Data
 from .parser import InvalidTelegramError, parse_telegram
 from .validation import CrcResult, validate_crc
@@ -41,9 +43,36 @@ class AnkerP1TelegramError(AnkerP1ResponseError):
 class AnkerP1Api:
     """Async facade combining raw HTTP transport and DSMR interpretation."""
 
-    def __init__(self, session: ClientSession, host: str) -> None:
+    def __init__(
+        self,
+        session: ClientSession,
+        host: str,
+        *,
+        experimental_http: bool = False,
+        http_suffix: str = "",
+    ) -> None:
         """Initialize the API facade."""
         self._client = AnkerP1Client(session, host)
+        self._http_decoder = (
+            HttpDecoder(host, http_suffix) if experimental_http else None
+        )
+
+    async def async_get_experimental_data(self) -> dict[str, Any]:
+        """Read optional endpoints independently; never return unauthenticated bytes."""
+        if self._http_decoder is None:
+            return {}
+
+        async def fetch(path: str) -> tuple[str, dict[str, Any]]:
+            try:
+                body = await self._client.async_get_encrypted_body(path)
+                payload = self._http_decoder.decode(body)
+            except HttpDecodeError:
+                return path, {"status": "decode_failed"}
+            except (AnkerP1TransportConnectionError, AnkerP1TransportResponseError):
+                return path, {"status": "request_failed"}
+            return path, {"status": "authenticated", "payload": payload}
+
+        return dict(await asyncio.gather(*(fetch(path) for path in ENDPOINTS)))
 
     @property
     def host(self) -> str:
