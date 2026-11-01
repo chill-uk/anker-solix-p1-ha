@@ -1,6 +1,6 @@
 # Anker Solix P1 Energy Tracker for Home Assistant
 
-> **Help validate experimental HTTP decryption:** Please send me a `.bin` response from `/api/measurement`, `/api/wifi_info`, or `/api/device_info`, together with the P1's local IPv4 address at capture time, so I can check the decryption key on another device. See the [capture and private sharing guide](docs/http-readout.md) for curl commands and what each payload contains.
+> **Help validate experimental HTTP decryption:** Please send me a support-encrypted readout from `/api/measurement`, `/api/wifi_info`, or `/api/device_info` so I can check the decryption key on another device. See the [capture guide](docs/http-readout.md) for simple curl commands, payload details, and encrypting the files and capture-time IP before sharing.
 
 [![GitHub release](https://img.shields.io/github/release/chill-uk/anker-solix-p1-ha?include_prereleases=&sort=semver&color=blue)](https://github.com/chill-uk/anker-solix-p1-ha/releases/)
 [![issues - anker-solix-p1-ha](https://img.shields.io/github/issues/chill-uk/anker-solix-p1-ha)](https://github.com/chill-uk/anker-solix-p1-ha/issues)

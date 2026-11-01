@@ -18,8 +18,7 @@ curl -o wifi_info.bin http://192.168.1.123/api/wifi_info
 curl -o device_info.bin http://192.168.1.123/api/device_info
 ```
 
-The files are saved in your current folder. Send the original `.bin` file and the
-P1 IP address you used.
+The files are saved in your current folder. Encrypt them before sharing, as below.
 
 Keep the files exactly as saved: do not paste them into a text editor, convert
 them to text, add HTTP headers, or edit/redact their bytes. Changes can prevent
@@ -36,21 +35,36 @@ far contain the following JSON fields. Other firmware versions may differ.
 | `/api/wifi_info` / `wifi_info.bin` | Wi-Fi network name (`wifi_ssid`) and signal strength (`wifi_rssi_db`). The examined response does not contain a Wi-Fi password. |
 | `/api/device_info` / `device_info.bin` | Product name/type, device serial number, firmware version, MAC address, API version, and firmware compatibility value (`firmware_Compatibility`). |
 
+## Encrypt before sharing
+
+Save [capture.py](../custom_components/anker_solix_p1/capture.py) alongside your
+`.bin` files. It runs without Home Assistant and uses the same support public key
+as the integration. It needs Python 3 and PyNaCl (`python3 -m pip install pynacl`).
+
+Replace the IP below with the P1 address you used for curl:
+
+```sh
+python3 capture.py --ip 192.168.1.123 measurement.bin
+```
+
+For all three files, append `wifi_info.bin device_info.bin` to that command.
+It creates **`http-readout.encrypted.json`**, containing the original response
+bytes and capture-time IP, encrypted with a libsodium sealed box. Only the holder
+of the matching support private key can decrypt it. Everything runs locally;
+nothing is uploaded. Your original `.bin` files remain on your laptop.
+
 ## What to send
 
-Please send the maintainer:
+Send **`http-readout.encrypted.json`** to the maintainer. The P1 IP is already
+inside the encrypted record, so you do not need to post it separately. Include
+the firmware version if known. No Wi-Fi password, cloud credentials, flash dump,
+or decryption secret is needed.
 
-- At least one of the original `.bin` files, noting which endpoint produced it.
-- **The P1's local IPv4 address when the file was captured.** The address is an
-  input to key derivation; your laptop's address or your public internet IP
-  will not work.
-- The device firmware version, if known, and approximate capture time.
+Open a [GitHub issue](https://github.com/chill-uk/anker-solix-p1-ha/issues/new)
+to arrange sharing. Do not attach the original `.bin` files or post your IP:
+the endpoint encryption alone does not keep their contents private from someone
+who knows its derivation. Send the support-encrypted JSON file instead.
 
-Please open a [GitHub issue](https://github.com/chill-uk/anker-solix-p1-ha/issues/new)
-to arrange a private exchange with the maintainer. The issue can simply say you
-have a capture available; do not attach the files or your IP there.
-
-Although the files are encrypted, they can reveal the identifiers, network name,
-and readings listed above to someone able to decrypt them. Share the files and
-capture-time IP privately. No Wi-Fi password, cloud credentials, flash dump, or
-decryption secret is needed.
+For maintainers, the existing `scripts/decrypt_diagnostics.py` accepts this JSON
+file and the support private key. The decrypted record contains `device_ip` and
+`responses`, with each original response body in `body_base64`.
