@@ -64,7 +64,7 @@ device serial number is ok, but the serial number of your meter / wifi ssid are 
 
 Send only the **`http-readout.encrypted.json`**. 
 The P1 IP is already inside the encrypted record, so you do not need to post it separately.  
-Nothing else is needed.
+No other details are needed.
 
 Open a [GitHub issue](https://github.com/chill-uk/anker-solix-p1-ha/issues/new)
 to arrange sharing. I will walk you through the steps to encrypt and upload the files.
