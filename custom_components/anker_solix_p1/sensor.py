@@ -575,7 +575,7 @@ def _device_info(
 def _dongle_device_info(coordinator: AnkerP1Coordinator, base_id: str) -> DeviceInfo:
     """Build device information for the physical Anker dongle."""
     data = coordinator.data
-    device_metadata = coordinator.experimental_http_payloads.get(
+    device_metadata = getattr(coordinator, "experimental_http_payloads", {}).get(
         "/api/device_info", {}
     )
     serial = device_metadata.get("serial")
