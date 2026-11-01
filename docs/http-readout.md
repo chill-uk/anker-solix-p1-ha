@@ -1,28 +1,45 @@
 # Help validate P1 HTTP decryption
 
-Please send me the binary response body from **any one** of these endpoints on
-your Anker SOLIX P1 Energy Tracker. One file is enough to start; all three are
-welcome. This helps check whether the same key derivation works across devices
-using AES-GCM authentication, rather than merely checking whether output looks
-readable. You do not need a decryption key, experimental mode, or a firmware dump
-to collect these files.
+I'm looking to validate if I have found a global/private key to decrypt some extra HTTP endpoints.  
+This will be used add additional diagnostic fields to Home Assistant:  
+(device serial number, firmware version, MAC address, etc..).  
 
 ## Capture with curl
 
-Connect to the same network as your P1 and replace `192.168.1.123` with its IP address.
+Connect to the same network as your P1 and replace `<p1-dongle-ip>` with its IP address.
 Run any one command, or all three:
 
 ```sh
-curl -o measurement.bin http://192.168.1.123/api/measurement
-curl -o wifi_info.bin http://192.168.1.123/api/wifi_info
-curl -o device_info.bin http://192.168.1.123/api/device_info
+curl -o measurement.bin http://<p1-dongle-ip>/api/measurement
+curl -o wifi_info.bin http://<p1-dongle-ip>/api/wifi_info
+curl -o device_info.bin http://<p1-dongle-ip>/api/device_info
 ```
 
 The files are saved in your current folder. Encrypt them before sharing, as below.
 
-Keep the files exactly as saved: do not paste them into a text editor, convert
-them to text, add HTTP headers, or edit/redact their bytes. Changes can prevent
-authentication. The expected response is encrypted binary, not readable JSON.
+Keep the files exactly as saved.  
+The expected response is encrypted binary, not readable JSON.
+
+## Encrypt before sharing
+
+In order to ensure no-one can read your captures (especially if the decryption key is reused globally),  
+I add another layer of encryption, to which only I have the private key.
+
+Save [capture.py](../custom_components/anker_solix_p1/capture.py) alongside your
+`.bin` files. It runs without Home Assistant and uses the same support public key
+as the integration. It needs Python 3 and PyNaCl (`python3 -m pip install pynacl`).
+
+Replace the IP below with the P1 address you used for curl:
+
+```sh
+python3 capture.py --ip <p1-dongle-ip> measurement.bin
+```
+
+For all three files, append `wifi_info.bin device_info.bin` to that command.
+It creates **`http-readout.encrypted.json`**, containing the original response
+bytes and capture-time IP, encrypted with a libsodium sealed box. Only the holder
+of the matching support private key can decrypt it. Everything runs locally;
+nothing is uploaded. Your original `.bin` files remain on your laptop.
 
 ## What each payload contains
 
@@ -35,23 +52,6 @@ far contain the following JSON fields. Other firmware versions may differ.
 | `/api/wifi_info` / `wifi_info.bin` | Wi-Fi network name (`wifi_ssid`) and signal strength (`wifi_rssi_db`). The examined response does not contain a Wi-Fi password. |
 | `/api/device_info` / `device_info.bin` | Product name/type, device serial number, firmware version, MAC address, API version, and firmware compatibility value (`firmware_Compatibility`). |
 
-## Encrypt before sharing
-
-Save [capture.py](../custom_components/anker_solix_p1/capture.py) alongside your
-`.bin` files. It runs without Home Assistant and uses the same support public key
-as the integration. It needs Python 3 and PyNaCl (`python3 -m pip install pynacl`).
-
-Replace the IP below with the P1 address you used for curl:
-
-```sh
-python3 capture.py --ip 192.168.1.123 measurement.bin
-```
-
-For all three files, append `wifi_info.bin device_info.bin` to that command.
-It creates **`http-readout.encrypted.json`**, containing the original response
-bytes and capture-time IP, encrypted with a libsodium sealed box. Only the holder
-of the matching support private key can decrypt it. Everything runs locally;
-nothing is uploaded. Your original `.bin` files remain on your laptop.
 
 ## What to send
 
