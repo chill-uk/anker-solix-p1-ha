@@ -1,7 +1,7 @@
 # Help validate P1 HTTP decryption
 
 I'm looking to validate if I have found a global/private key to decrypt some extra HTTP endpoints.  
-This will be used add additional diagnostic fields to Home Assistant:  
+This will be used for additional diagnostic fields in Home Assistant:  
 (device serial number, firmware version, MAC address, etc..).  
 
 ## Capture with curl
