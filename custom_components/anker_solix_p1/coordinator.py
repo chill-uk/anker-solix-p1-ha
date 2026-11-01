@@ -50,6 +50,7 @@ class AnkerP1Coordinator(DataUpdateCoordinator[AnkerP1Data]):
         """Initialize the coordinator."""
         self.api = api
         self.experimental_http_status: dict[str, str] = {}
+        self.experimental_http_payloads: dict[str, dict[str, Any]] = {}
         self._last_success_at: float | None = None
         self._data_grace = AnkerP1DataGrace(TRANSIENT_FAILURE_GRACE_SECONDS)
         self.phase_mode = entry.options.get(CONF_PHASE_MODE, DEFAULT_PHASE_MODE)
@@ -111,6 +112,15 @@ class AnkerP1Coordinator(DataUpdateCoordinator[AnkerP1Data]):
         experimental = await self.api.async_get_experimental_data()
         self.experimental_http_status = {
             path: result["status"] for path, result in experimental.items()
+        }
+        # Retain only explicitly supported, authenticated metadata. Do not expose
+        # arbitrary fields that could contain credentials or identifiers.
+        self.experimental_http_payloads = {
+            path: result["payload"]
+            for path, result in experimental.items()
+            if path in ("/api/device_info", "/api/wifi_info")
+            and result.get("status") == "authenticated"
+            and isinstance(result.get("payload"), dict)
         }
         if experimental:
             self.encrypted_capture.capture(
