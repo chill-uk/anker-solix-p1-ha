@@ -22,7 +22,7 @@ The expected response is an encrypted binary, not a readable JSON file.
 
 ## Encrypt before sharing
 
-In order to ensure no-one can read your captures (especially if the decryption key is reused globally),  
+In order to ensure no-one can read your captures (especially if the Anker decryption key is reused globally),  
 I add another layer of encryption, to which only I have the private key.
 
 Save [capture.py](../custom_components/anker_solix_p1/capture.py) alongside your
