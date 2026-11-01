@@ -9,39 +9,17 @@ to collect these files.
 
 ## Capture with curl
 
-Connect your laptop to the same local network as your P1. Find the P1's current
-IPv4 address in your router or the Anker app, then replace the example address
-below. These commands work in macOS/Linux Terminal.
-
-Create a private folder and set the device address:
+Connect to the same network as your P1 and replace `192.168.1.123` with its IP address.
+Run any one command, or all three:
 
 ```sh
-umask 077
-mkdir -p p1-http-readout
-cd p1-http-readout
-P1_IP='192.168.1.123'
+curl -o measurement.bin http://192.168.1.123/api/measurement
+curl -o wifi_info.bin http://192.168.1.123/api/wifi_info
+curl -o device_info.bin http://192.168.1.123/api/device_info
 ```
 
-Run any one of the following commands, or all three:
-
-```sh
-curl --noproxy '*' --fail --silent --show-error --connect-timeout 5 --max-time 15 \
-  --output measurement.bin --write-out 'HTTP %{http_code}\n' \
-  "http://$P1_IP/api/measurement"
-
-curl --noproxy '*' --fail --silent --show-error --connect-timeout 5 --max-time 15 \
-  --output wifi_info.bin --write-out 'HTTP %{http_code}\n' \
-  "http://$P1_IP/api/wifi_info"
-
-curl --noproxy '*' --fail --silent --show-error --connect-timeout 5 --max-time 15 \
-  --output device_info.bin --write-out 'HTTP %{http_code}\n' \
-  "http://$P1_IP/api/device_info"
-```
-
-Each successful command should print `HTTP 200` and save a nonempty binary file.
-If curl reports an error or another HTTP status, report that instead of sending
-the output as a valid capture. These are read-only GET requests, with no request
-payload. They contact your P1 locally and do not upload anything.
+The files are saved in your current folder. Send the original `.bin` file and the
+P1 IP address you used.
 
 Keep the files exactly as saved: do not paste them into a text editor, convert
 them to text, add HTTP headers, or edit/redact their bytes. Changes can prevent
