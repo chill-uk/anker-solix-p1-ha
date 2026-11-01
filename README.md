@@ -1,6 +1,6 @@
 # Anker Solix P1 Energy Tracker for Home Assistant
 
-> **Help validate experimental HTTP decryption:** An independent Anker SOLIX P1 firmware readout would help confirm whether the five-byte derivation value is shared across devices. Please open an issue to arrange a private exchange first. Do not attach flash dumps, keys, Wi-Fi credentials, or raw readings to a public issue. Firmware version and authentication success/failure are safe starting points.
+> **Help validate experimental HTTP decryption:** Please send me a `.bin` response from `/api/measurement`, `/api/wifi_info`, or `/api/device_info`, together with the P1's local IPv4 address at capture time, so I can check the decryption key on another device. See the [capture and private sharing guide](docs/http-readout.md) for curl commands and what each payload contains.
 
 [![GitHub release](https://img.shields.io/github/release/chill-uk/anker-solix-p1-ha?include_prereleases=&sort=semver&color=blue)](https://github.com/chill-uk/anker-solix-p1-ha/releases/)
 [![issues - anker-solix-p1-ha](https://img.shields.io/github/issues/chill-uk/anker-solix-p1-ha)](https://github.com/chill-uk/anker-solix-p1-ha/issues)
