@@ -29,6 +29,7 @@ def _install_sensor_stubs() -> None:
         POWER = "power"
         VOLTAGE = "voltage"
         WATER = "water"
+        SIGNAL_STRENGTH = "signal_strength"
 
     class SensorStateClass:
         MEASUREMENT = "measurement"
@@ -84,6 +85,7 @@ def _install_sensor_stubs() -> None:
             super().__init__(**kwargs)
 
     device_registry.DeviceInfo = DeviceInfo
+    device_registry.CONNECTION_NETWORK_MAC = "mac"
     device_registry.async_get = lambda _hass: None
     sys.modules[device_registry.__name__] = device_registry
     helpers.device_registry = device_registry
@@ -177,6 +179,77 @@ class FakeRegistry:
 
 class SensorTests(unittest.TestCase):
     """Verify deterministic entity exposure and compatibility migrations."""
+
+
+    def test_authenticated_http_metadata_entities(self) -> None:
+        """Only supported fields become diagnostic entities on the dongle."""
+        data = _data_with_channel(models.MBusChannel(1))
+        payloads = {
+            "/api/device_info": {
+                "product_name": "P1 Meter",
+                "product_type": "P1 energy tracker",
+                "serial": "AUJDMGU0G20203702",
+                "firmware_version": "2.9.0.6",
+                "mac": "F8:5B:1B:6F:21:08",
+                "api_version": "1.0",
+                "firmware_Compatibility": 0,
+                "secret": "must-not-be-exposed",
+            },
+            "/api/wifi_info": {
+                "wifi_ssid": "Example network",
+                "wifi_rssi_db": -82,
+                "password": "must-not-be-exposed",
+            },
+        }
+        descriptions = {
+            description.key: description
+            for description in sensor._available_descriptions(
+                data, http_payloads=payloads
+            )
+        }
+        self.assertNotIn(
+            "wifi_rssi",
+            {d.key for d in sensor._available_descriptions(data)},
+        )
+        self.assertEqual(
+            {"wifi_rssi", "wifi_ssid", "api_version",
+             "product_type", "firmware_compatibility"}
+            & descriptions.keys(),
+            {"wifi_rssi", "wifi_ssid", "api_version",
+             "product_type", "firmware_compatibility"},
+        )
+        coordinator = SimpleNamespace(
+            data=data, experimental_http_payloads=payloads,
+            api=SimpleNamespace(host="192.168.1.46")
+        )
+        entry = SimpleNamespace(unique_id="P1-123", entry_id="test")
+        for key, expected in (
+            ("wifi_rssi", -82),
+            ("wifi_ssid", "Example network"),
+            ("api_version", "1.0"),
+            ("product_type", "P1 energy tracker"),
+            ("firmware_compatibility", 0),
+        ):
+            entity = sensor.AnkerP1Sensor(
+                coordinator, entry, descriptions[key], "dongle-id"
+            )
+            self.assertEqual(entity.native_value, expected)
+            self.assertEqual(entity._attr_device_info["identifiers"], {
+                ("anker_solix_p1", "P1-123")
+            })
+            self.assertEqual(entity.entity_description.entity_category, "diagnostic")
+        device = sensor._dongle_device_info(coordinator, "P1-123")
+        self.assertEqual(device["model"], "P1 Meter")
+        self.assertEqual(device["sw_version"], "1.1.07")
+        self.assertEqual(
+            device["connections"], {("mac", "f8:5b:1b:6f:21:08")}
+        )
+        self.assertEqual(device["serial_number"], "P1-123")
+        for key in ("wifi_rssi", "wifi_ssid", "api_version",
+                    "product_type", "firmware_compatibility"):
+            for path in ("strings.json", "translations/en.json"):
+                translations = json.loads((INTEGRATION / path).read_text())
+                self.assertIn(key, translations["entity"]["sensor"])
 
     def test_gas_missing_or_zero_readings_are_unavailable(self) -> None:
         """Do not publish temporary zero totals or missing gas readings."""
@@ -395,6 +468,7 @@ class SensorTests(unittest.TestCase):
             description.key
             for description in sensor.SENSOR_DESCRIPTIONS
             if description.key not in {"energy_import_total", "energy_export_total"}
+            and description.http_endpoint is None
         }
         self.assertTrue(expected_static <= keys)
         self.assertNotIn("energy_import_total", keys)

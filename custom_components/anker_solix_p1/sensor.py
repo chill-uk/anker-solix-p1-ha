@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from decimal import Decimal
+import re
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -26,7 +27,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -48,6 +49,8 @@ class AnkerP1SensorDescription(SensorEntityDescription):
     obis: str | None = None
     expected_unit: str | None = None
     metadata_key: str | None = None
+    http_endpoint: str | None = None
+    http_key: str | None = None
     meter_channel: int | None = None
     device_group: DeviceGroup = "electricity"
     value_multiplier: Decimal = Decimal(1)
@@ -94,6 +97,54 @@ def _count(key: str, obis: str, icon: str) -> AnkerP1SensorDescription:
 
 
 SENSOR_DESCRIPTIONS: tuple[AnkerP1SensorDescription, ...] = (
+    # Optional authenticated metadata from the Anker local HTTP API.
+    AnkerP1SensorDescription(
+        key="wifi_rssi",
+        translation_key="wifi_rssi",
+        http_endpoint="/api/wifi_info",
+        http_key="wifi_rssi_db",
+        device_group="dongle",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement="dBm",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    AnkerP1SensorDescription(
+        key="wifi_ssid",
+        translation_key="wifi_ssid",
+        http_endpoint="/api/wifi_info",
+        http_key="wifi_ssid",
+        device_group="dongle",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    AnkerP1SensorDescription(
+        key="api_version",
+        translation_key="api_version",
+        http_endpoint="/api/device_info",
+        http_key="api_version",
+        device_group="dongle",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    AnkerP1SensorDescription(
+        key="product_type",
+        translation_key="product_type",
+        http_endpoint="/api/device_info",
+        http_key="product_type",
+        device_group="dongle",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    AnkerP1SensorDescription(
+        key="firmware_compatibility",
+        translation_key="firmware_compatibility",
+        http_endpoint="/api/device_info",
+        http_key="firmware_Compatibility",
+        device_group="dongle",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
     _energy("energy_import_total", "1-0:1.8.0"),
     _energy("energy_export_total", "1-0:2.8.0"),
     _energy("energy_import_tariff_1", "1-0:1.8.1"),
@@ -208,7 +259,9 @@ async def async_setup_entry(
 
     @callback
     def discover_entities() -> None:
-        descriptions = _available_descriptions(coordinator.data, coordinator.phase_mode)
+        descriptions = _available_descriptions(
+            coordinator.data, coordinator.phase_mode, coordinator.experimental_http_payloads
+        )
         new = [
             description for description in descriptions if description.key not in known
         ]
@@ -225,17 +278,21 @@ async def async_setup_entry(
 
 
 def _available_descriptions(
-    data: AnkerP1Data, phase_mode: str | None = None
+    data: AnkerP1Data, phase_mode: str | None = None,
+    http_payloads: dict[str, dict[str, Any]] | None = None,
 ) -> list[AnkerP1SensorDescription]:
     """Return all DSMR descriptions plus discovered M-Bus readings."""
     optional_meter_keys = {"energy_import_total", "energy_export_total"}
+    http_payloads = http_payloads or {}
     descriptions = [
         replace(description, entity_registry_enabled_default=True)
         if phase_mode == PHASE_MODE_THREE and description.key.endswith(("_l2", "_l3"))
         else description
         for description in SENSOR_DESCRIPTIONS
-        if description.key not in optional_meter_keys
-        or (description.obis is not None and description.obis in data.telegram.obis)
+        if (description.key not in optional_meter_keys
+        or (description.obis is not None and description.obis in data.telegram.obis))
+        and (description.http_endpoint is None
+        or description.http_key in http_payloads.get(description.http_endpoint, {}))
     ]
 
     for channel in data.telegram.meter_info.mbus_channels.values():
@@ -408,9 +465,18 @@ class AnkerP1Sensor(CoordinatorEntity[AnkerP1Coordinator], SensorEntity):
         return super().available and self.native_value is not None
 
     @property
-    def native_value(self) -> Decimal | int | None:
+    def native_value(self) -> Decimal | int | str | None:
         """Return the latest sensor value."""
-        return _value_for_description(self.coordinator.data, self.entity_description)
+        description = self.entity_description
+        if description.http_endpoint is not None:
+            payload = self.coordinator.experimental_http_payloads.get(
+                description.http_endpoint, {}
+            )
+            value = payload.get(description.http_key)
+            if description.key in ("wifi_rssi", "firmware_compatibility"):
+                return value if type(value) is int else None
+            return value if isinstance(value, str) and value.strip() else None
+        return _value_for_description(self.coordinator.data, description)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
@@ -509,12 +575,27 @@ def _device_info(
 def _dongle_device_info(coordinator: AnkerP1Coordinator, base_id: str) -> DeviceInfo:
     """Build device information for the physical Anker dongle."""
     data = coordinator.data
+    device_metadata = getattr(coordinator, "experimental_http_payloads", {}).get(
+        "/api/device_info", {}
+    )
+    serial = device_metadata.get("serial")
+    firmware = device_metadata.get("firmware_version")
+    model = device_metadata.get("product_name")
+    mac = device_metadata.get("mac")
+    # Never trust an arbitrary value as a network hardware address.
+    connections = (
+        {(CONNECTION_NETWORK_MAC, mac.lower())}
+        if isinstance(mac, str)
+        and re.fullmatch(r"[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}", mac)
+        else set()
+    )
     return DeviceInfo(
         identifiers={(DOMAIN, base_id)},
+        connections=connections,
         manufacturer="Anker",
-        model="P1 Energy Tracker",
+        model=model if isinstance(model, str) and model else "P1 Energy Tracker",
         name="Anker SOLIX P1 Energy Tracker",
-        serial_number=data.serial,
-        sw_version=data.firmware_version,
+        serial_number=data.serial or (serial if isinstance(serial, str) else None),
+        sw_version=data.firmware_version or (firmware if isinstance(firmware, str) else None),
         configuration_url=f"http://{coordinator.api.host}/",
     )
