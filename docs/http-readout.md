@@ -43,13 +43,13 @@ Replace the IP below with the P1 address you used for curl:
 python3 capture.py --ip <p1-dongle-ip> measurement.bin
 ```
 
-One capture should be enough, but if you want to send more data, swap in `wifi_info.bin` or `device_info.bin` to that command.
+One capture should be enough, but if you want to send more data, swap in `wifi_info.bin` or `device_info.bin` to that command.  
 It creates a **`http-readout.encrypted.json`** file, containing the response bin file and capture-time IP.  
 It's then encrypted with my public key.  
 
 ## What each payload contains
 
-What exactly are you sending me?
+What exactly are you sending me?  
 Each endpoint contains info as shown below. You might decide that sending me the  
 device serial number is ok, but the serial number of your meter / wifi ssid are not.
 
@@ -62,11 +62,13 @@ device serial number is ok, but the serial number of your meter / wifi ssid are 
 
 ## What to send
 
-Send only the **`http-readout.encrypted.json`**. 
+Open a [GitHub issue](https://github.com/chill-uk/anker-solix-p1-ha/issues/new) to arrange sharing.  
+I will walk you through the steps to encrypt and upload the files.  
+Do not attach the original `.bin` files or send any other data.  
+The support-encrypted JSON file is all that I need.
+
+Send only the **`http-readout.encrypted.json`**.  
 The P1 IP is already inside the encrypted record, so you do not need to post it separately.  
 No other details are needed.
 
-Open a [GitHub issue](https://github.com/chill-uk/anker-solix-p1-ha/issues/new) to arrange sharing.  
-I will walk you through the steps to encrypt and upload the files.
-Do not attach the original `.bin` files or send any other data.
-The support-encrypted JSON file is all that I need.
+
