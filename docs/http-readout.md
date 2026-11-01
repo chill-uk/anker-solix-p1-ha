@@ -15,19 +15,19 @@ curl -o wifi_info.bin http://<p1-dongle-ip>/api/wifi_info
 curl -o device_info.bin http://<p1-dongle-ip>/api/device_info
 ```
 
-The files are saved in your current folder. Encrypt them before sharing, as below.
-
-Keep the files exactly as saved.  
-The expected response is an encrypted binary, not a readable JSON file.
+These files are encrypted binaries, not readable JSON files.
+I'm trying to understand if these files are encrypted with a device specific key, or a generic key.
+Please don't share these files as they are in case a generic encryption key is used.
 
 ## Encrypt before sharing
 
 In order to ensure no-one can read your captures (especially if the Anker decryption key is reused globally),  
-I add another layer of encryption, to which only I have the private key.
+We will add another layer of encryption, to which only I have the private key.
 
-Save [capture.py](../custom_components/anker_solix_p1/capture.py) alongside your
-`.bin` files. It runs without Home Assistant and uses the same support public key
-as the integration. Set up a Python virtual environment and install PyNaCl:
+Save [capture.py](../custom_components/anker_solix_p1/capture.py) alongside your `.bin` files.  
+It runs without Home Assistant and uses the same support public key as the integration.  
+
+Set up a Python virtual environment and install PyNaCl:
 
 ```sh
 python3 -m venv .venv
