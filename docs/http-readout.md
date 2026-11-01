@@ -18,7 +18,7 @@ curl -o device_info.bin http://<p1-dongle-ip>/api/device_info
 The files are saved in your current folder. Encrypt them before sharing, as below.
 
 Keep the files exactly as saved.  
-The expected response is encrypted binary, not readable JSON.
+The expected response is an encrypted binary, not a readable JSON file.
 
 ## Encrypt before sharing
 
