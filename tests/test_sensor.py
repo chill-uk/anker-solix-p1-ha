@@ -468,6 +468,7 @@ class SensorTests(unittest.TestCase):
             description.key
             for description in sensor.SENSOR_DESCRIPTIONS
             if description.key not in {"energy_import_total", "energy_export_total"}
+            and description.http_endpoint is None
         }
         self.assertTrue(expected_static <= keys)
         self.assertNotIn("energy_import_total", keys)
