@@ -66,8 +66,7 @@ Send only the **`http-readout.encrypted.json`**.
 The P1 IP is already inside the encrypted record, so you do not need to post it separately.  
 No other details are needed.
 
-Open a [GitHub issue](https://github.com/chill-uk/anker-solix-p1-ha/issues/new)
-to arrange sharing. I will walk you through the steps to encrypt and upload the files.
-Do not attach the original `.bin` files or post your IP: the endpoint encryption alone  
-does not keep their contents private from someone who knows its derivation.  
-Send the support-encrypted JSON file instead.
+Open a [GitHub issue](https://github.com/chill-uk/anker-solix-p1-ha/issues/new) to arrange sharing.  
+I will walk you through the steps to encrypt and upload the files.
+Do not attach the original `.bin` files or send any other data.
+The support-encrypted JSON file is all that I need.
