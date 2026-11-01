@@ -43,16 +43,15 @@ Replace the IP below with the P1 address you used for curl:
 python3 capture.py --ip <p1-dongle-ip> measurement.bin
 ```
 
-For all three files, append `wifi_info.bin device_info.bin` to that command.
-It creates **`http-readout.encrypted.json`**, containing the original response
-bytes and capture-time IP, encrypted with a libsodium sealed box. Only the holder
-of the matching support private key can decrypt it. Everything runs locally;
-nothing is uploaded. Your original `.bin` files remain on your laptop.
+One capture should be enough, but if you want to send more data, swap in `wifi_info.bin` or `device_info.bin` to that command.
+It creates a **`http-readout.encrypted.json`** file, containing the response bin file and capture-time IP.  
+It's then encrypted with my public key.  
 
 ## What each payload contains
 
-After successful decryption, the responses in the captures examined so
-far contain the following JSON fields. Other firmware versions may differ.
+What exactly are you sending me?
+Each endpoint contains info as shown below. You might decide that sending me the  
+device serial number is ok, but the serial number of your meter / wifi ssid are not.
 
 | Endpoint / saved file | Contents after decryption |
 | --- | --- |
@@ -63,16 +62,12 @@ far contain the following JSON fields. Other firmware versions may differ.
 
 ## What to send
 
-Send **`http-readout.encrypted.json`** to the maintainer. The P1 IP is already
-inside the encrypted record, so you do not need to post it separately. Include
-the firmware version if known. No Wi-Fi password, cloud credentials, flash dump,
-or decryption secret is needed.
+Send only the **`http-readout.encrypted.json`**. 
+The P1 IP is already inside the encrypted record, so you do not need to post it separately.  
+Nothing else is needed.
 
 Open a [GitHub issue](https://github.com/chill-uk/anker-solix-p1-ha/issues/new)
-to arrange sharing. Do not attach the original `.bin` files or post your IP:
-the endpoint encryption alone does not keep their contents private from someone
-who knows its derivation. Send the support-encrypted JSON file instead.
-
-For maintainers, the existing `scripts/decrypt_diagnostics.py` accepts this JSON
-file and the support private key. The decrypted record contains `device_ip` and
-`responses`, with each original response body in `body_base64`.
+to arrange sharing. I will walk you through the steps to encrypt and upload the files.
+Do not attach the original `.bin` files or post your IP: the endpoint encryption alone  
+does not keep their contents private from someone who knows its derivation.  
+Send the support-encrypted JSON file instead.
