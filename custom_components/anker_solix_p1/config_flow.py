@@ -23,6 +23,8 @@ from .api import (
 )
 from .const import (
     CONF_ENCRYPTED_DIAGNOSTIC_CAPTURE,
+    CONF_EXPERIMENTAL_HTTP,
+    CONF_HTTP_SUFFIX,
     CONF_PHASE_MODE,
     CONF_POLL_INTERVAL,
     CONF_TELEGRAM_DEBUG,
@@ -34,6 +36,7 @@ from .const import (
     PHASE_MODE_SINGLE,
     PHASE_MODE_THREE,
 )
+from .http_decoder import validate_material
 
 
 class AnkerP1ConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -87,7 +90,15 @@ class AnkerP1OptionsFlow(OptionsFlowWithReload):
     ) -> ConfigFlowResult:
         """Configure and revalidate the device address and polling interval."""
         errors: dict[str, str] = {}
-        if user_input is not None:
+        if user_input is not None and user_input.get(CONF_EXPERIMENTAL_HTTP, False):
+            try:
+                validate_material(
+                    _normalize_host(str(user_input[CONF_HOST])),
+                    str(user_input.get(CONF_HTTP_SUFFIX, "")),
+                )
+            except ValueError:
+                errors["base"] = "invalid_experimental_http"
+        if user_input is not None and not errors:
             try:
                 host = _normalize_host(str(user_input[CONF_HOST]))
             except ValueError:
@@ -115,6 +126,14 @@ class AnkerP1OptionsFlow(OptionsFlowWithReload):
                             return self.async_create_entry(
                                 title="",
                                 data={
+                                    **{
+                                        key: user_input[key]
+                                        for key in (
+                                            CONF_EXPERIMENTAL_HTTP,
+                                            CONF_HTTP_SUFFIX,
+                                        )
+                                        if key in user_input
+                                    },
                                     CONF_HOST: host,
                                     CONF_POLL_INTERVAL: user_input[CONF_POLL_INTERVAL],
                                     CONF_PHASE_MODE: user_input[CONF_PHASE_MODE],
@@ -143,6 +162,18 @@ class AnkerP1OptionsFlow(OptionsFlowWithReload):
         schema = vol.Schema(
             {
                 vol.Required(CONF_HOST, default=current_host): str,
+                vol.Required(
+                    CONF_EXPERIMENTAL_HTTP,
+                    default=self.config_entry.options.get(
+                        CONF_EXPERIMENTAL_HTTP, False
+                    ),
+                ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_HTTP_SUFFIX,
+                    default=self.config_entry.options.get(CONF_HTTP_SUFFIX, ""),
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                ),
                 vol.Required(CONF_POLL_INTERVAL, default=current_interval): vol.All(
                     vol.Coerce(int),
                     vol.Range(min=MIN_POLL_INTERVAL, max=MAX_POLL_INTERVAL),

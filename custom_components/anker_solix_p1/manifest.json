@@ -12,7 +12,8 @@
   "requirements": [
     "PyNaCl>=1.6.2",
     "dsmr-parser>=1.11.1",
-    "p1-dsmr-common>=0.1.2"
+    "p1-dsmr-common>=0.1.2",
+    "cryptography>=44.0.0"
   ],
   "version": "0.1.0"
 }

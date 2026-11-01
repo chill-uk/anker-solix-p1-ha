@@ -14,6 +14,7 @@ def _install_home_assistant_stubs() -> None:
     voluptuous = ModuleType("voluptuous")
     voluptuous.Schema = lambda value: value
     voluptuous.Required = lambda key, **_kwargs: key
+    voluptuous.Optional = lambda key, **_kwargs: key
     voluptuous.All = lambda *validators: validators
     voluptuous.Coerce = lambda value_type: value_type
     voluptuous.Range = lambda **kwargs: kwargs
@@ -80,6 +81,9 @@ def _install_home_assistant_stubs() -> None:
     class _SelectSelectorMode:
         DROPDOWN = "dropdown"
 
+    selector.TextSelector = _Selector
+    selector.TextSelectorConfig = _SelectSelectorConfig
+    selector.TextSelectorType = SimpleNamespace(PASSWORD="password")
     selector.BooleanSelector = _Selector
     selector.SelectSelector = _Selector
     selector.SelectSelectorConfig = _SelectSelectorConfig
@@ -95,6 +99,8 @@ load_module("custom_components.anker_solix_p1.api")
 constants = sys.modules.get("custom_components.anker_solix_p1.const")
 if constants is None:
     constants = load_module("custom_components.anker_solix_p1.const")
+constants.CONF_EXPERIMENTAL_HTTP = "experimental_http"
+constants.CONF_HTTP_SUFFIX = "http_suffix"
 constants.CONF_POLL_INTERVAL = "poll_interval"
 constants.DEFAULT_POLL_INTERVAL = 5
 constants.DOMAIN = "anker_solix_p1"
@@ -133,6 +139,33 @@ class FakeConfigEntries:
 
 class ConfigFlowTests(unittest.IsolatedAsyncioTestCase):
     """Verify setup and editable-address validation behavior."""
+
+    async def test_experimental_options_require_ipv4_and_private_material(self) -> None:
+        """Reject unusable experimental settings and persist the explicit opt-in."""
+        config_flow.AnkerP1Api = FakeApi
+        flow = config_flow.AnkerP1OptionsFlow()
+        flow.config_entry = SimpleNamespace(
+            entry_id="one", unique_id="P1-123", data={"host": "old.local"}, options={}
+        )
+        flow.hass = SimpleNamespace(config_entries=FakeConfigEntries())
+        values = {
+            "host": "p1.local",
+            "experimental_http": True,
+            "http_suffix": "0102030405",
+            "poll_interval": 5,
+            "phase_mode": "single",
+            "telegram_debug": False,
+            "encrypted_diagnostic_capture": False,
+        }
+        result = await flow.async_step_init(values)
+        self.assertEqual(result["errors"], {"base": "invalid_experimental_http"})
+        values["host"] = "192.0.2.7"
+        values["http_suffix"] = "bad"
+        result = await flow.async_step_init(values)
+        self.assertEqual(result["errors"], {"base": "invalid_experimental_http"})
+        values["http_suffix"] = "0102030405"
+        result = await flow.async_step_init(values)
+        self.assertEqual(result["data"], values)
 
     def test_normalizes_supported_addresses(self) -> None:
         """Accept local host forms and reject URLs with unsupported details."""

@@ -28,11 +28,15 @@
           "poll_interval": "Polling interval (seconds)",
           "phase_mode": "Meter phases",
           "telegram_debug": "Telegram debug mode",
-          "encrypted_diagnostic_capture": "Encrypted diagnostic capture"
+          "encrypted_diagnostic_capture": "Encrypted diagnostic capture",
+          "experimental_http": "Experimental encrypted HTTP decoding",
+          "http_suffix": "Private HTTP derivation value (10 hex digits)"
         },
         "data_description": {
           "telegram_debug": "Immediately log transient request failures and redacted telegrams with CRC, parsing, or required-field errors. The 15-second grace period remains active.",
-          "encrypted_diagnostic_capture": "Encrypt raw telegrams immediately for support diagnostics. Capture stops after 10 minutes or 120 records. Download diagnostics before disabling this option or restarting Home Assistant."
+          "encrypted_diagnostic_capture": "Encrypt raw telegrams immediately for support diagnostics. Capture stops after 10 minutes or 120 records. Download diagnostics before disabling this option or restarting Home Assistant.",
+          "experimental_http": "Off by default. Poll and authenticate three additional HTTP endpoints. Results are available only in encrypted support captures; existing sensors continue using DSMR.",
+          "http_suffix": "Required only for experimental decoding, together with a literal IPv4 address. Stored in Home Assistant configuration; keep it and your backups private."
         }
       }
     },
@@ -41,7 +45,8 @@
       "cannot_connect": "Failed to connect",
       "invalid_host": "Enter a valid hostname or IP address on port 80",
       "invalid_response": "The device did not return a valid DSMR telegram",
-      "wrong_device": "The device at this address has a different Anker SOLIX P1 serial number"
+      "wrong_device": "The device at this address has a different Anker SOLIX P1 serial number",
+      "invalid_experimental_http": "Experimental decoding requires a literal IPv4 address and a five-byte derivation value written as 10 hex digits."
     }
   },
   "selector": {

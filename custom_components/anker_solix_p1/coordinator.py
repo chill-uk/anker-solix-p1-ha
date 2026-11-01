@@ -49,6 +49,7 @@ class AnkerP1Coordinator(DataUpdateCoordinator[AnkerP1Data]):
     ) -> None:
         """Initialize the coordinator."""
         self.api = api
+        self.experimental_http_status: dict[str, str] = {}
         self._last_success_at: float | None = None
         self._data_grace = AnkerP1DataGrace(TRANSIENT_FAILURE_GRACE_SECONDS)
         self.phase_mode = entry.options.get(CONF_PHASE_MODE, DEFAULT_PHASE_MODE)
@@ -103,8 +104,22 @@ class AnkerP1Coordinator(DataUpdateCoordinator[AnkerP1Data]):
                     err,
                 )
                 return self.data
-            raise UpdateFailed(f"Error communicating with Anker SOLIX P1: {err}") from err
+            raise UpdateFailed(
+                f"Error communicating with Anker SOLIX P1: {err}"
+            ) from err
 
+        experimental = await self.api.async_get_experimental_data()
+        self.experimental_http_status = {
+            path: result["status"] for path, result in experimental.items()
+        }
+        if experimental:
+            self.encrypted_capture.capture(
+                {
+                    "outcome": "experimental_http",
+                    "firmware_version": incoming.firmware_version,
+                    "endpoints": experimental,
+                }
+            )
         self._last_success_at = loop.time()
         validation = validate_required_obis(incoming.raw_telegram, self.phase_mode)
         crc = validate_crc(incoming.raw_telegram)

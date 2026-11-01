@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import AnkerP1Api
-from .const import PLATFORMS
+from .const import CONF_EXPERIMENTAL_HTTP, CONF_HTTP_SUFFIX, PLATFORMS
 from .coordinator import AnkerP1Coordinator
 
 
@@ -27,7 +27,12 @@ type AnkerP1ConfigEntry = ConfigEntry[AnkerP1RuntimeData]
 async def async_setup_entry(hass: HomeAssistant, entry: AnkerP1ConfigEntry) -> bool:
     """Set up Anker SOLIX P1 from a config entry."""
     host = entry.options.get(CONF_HOST, entry.data[CONF_HOST])
-    api = AnkerP1Api(async_get_clientsession(hass), host)
+    api = AnkerP1Api(
+        async_get_clientsession(hass),
+        host,
+        experimental_http=entry.options.get(CONF_EXPERIMENTAL_HTTP, False),
+        http_suffix=entry.options.get(CONF_HTTP_SUFFIX, ""),
+    )
     coordinator = AnkerP1Coordinator(hass, entry, api)
     await coordinator.async_config_entry_first_refresh()
 

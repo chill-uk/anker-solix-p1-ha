@@ -29,6 +29,7 @@ async def async_get_config_entry_diagnostics(
             coordinator.data.firmware_version if coordinator.data is not None else None
         ),
         "phase_mode": coordinator.phase_mode,
+        "experimental_http": coordinator.experimental_http_status,
         "capture": capture,
         "encrypted_records": encrypted_records,
     }
